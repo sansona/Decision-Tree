@@ -92,18 +92,8 @@ class DecisionTree:
         self.max_features_split = max_features_split
         self.min_sample_split = min_sample_split
         self.min_sample_leaf = min_sample_leaf
-
-    def train(self, dataset, target):
-        """
-        Main method for training model
-
-        Attributes
-        ----------
-        dataset: pandas dataframe
-        target: string
-                name of target column in dataset
-        """
-        pass
+        self.curr_nodes = 0
+        self.splits = list()
 
     def gini_impurity(self, dataset, target):
         """
@@ -176,7 +166,7 @@ class DecisionTree:
     def get_best_split(self, dataset, target):
         """
         Calculates best thresholds for entirety of dataset by
-        iteratively calling gini_impurity and storing best feature/threshold
+        recursively calling itself on subsequent splits
 
         Attributes
         ----------
@@ -187,67 +177,60 @@ class DecisionTree:
 
         Returns
         -------
-        Dataframe containing best threshold for each feature
+        List of dictionaries of form:
+            {Feature -> str: [threshold, threshold_idx] -> list}
+        where each dictionary is a node
         """
         # if initialize with no specified max_depth, let tree grow to
         # theoretical max depth. Use dummy value for theoretical max
-        if self.max_depth == None:
+        if self.max_depth is None:
             depth = 9999999
         else:
             depth = self.max_depth
 
-        # while true, find best threshold, then remove threshold feature
-        # and repeat until reach max_depth or run out of features
-
-        splits = list()
-        curr_depth = 0
-        # base case - for first split, feature to split is unknown
-        if curr_depth == 0:
+        while self.curr_nodes < 2 * depth + 1:
+            # get split details for current dataset
             min_gini = self.gini_impurity(dataset, target)
             feature, threshold, thresh_idx = (
                 min_gini.name,
                 min_gini["threshold"],
-                min_gini["thresh idx"],
+                int(min_gini["thresh idx"]),
             )
-            splits.append([feature, threshold, thresh_idx])
-            curr_depth += 1
+            # append split conditions to self.split if condition not
+            # already there
+            split_node = {feature: [threshold, thresh_idx]}
+            if split_node not in self.splits:
+                self.splits.append(split_node)
+                self.curr_nodes += 1
+            else:
+                break
 
-        # TODO - this SHOULD iterate through and run gini_impurity on each
-        # subset of the dataframe, appending the proper split to some
-        # as of now undecided data structure
-        df_left = dataset.copy(deep=True)
-        df_right = dataset.copy(deep=True)
-        while curr_depth <= depth and curr_depth < len(dataset.columns):
-            split_feature = splits[-1][0]
-            split_idx = int(splits[-1][-1])
+            # thresh_idx == 0 corresponds to a split with no decrease
+            # in impurity. Thus, as long as idx !=, continue splitting
+            if thresh_idx != 0:
+                # sort values prior to recalling function to split
+                # @ appropriate index
+                df = dataset.sort_values(feature)
+                left = df[:thresh_idx]
+                right = df[thresh_idx:]
+                self.get_best_split(left, target)
+                self.get_best_split(right, target)
+            else:
+                continue
 
-            print(split_feature)
-            # print(splits)
-            # sort values, split dataframe @ thresh index
-            df_left.sort_values(split_feature, inplace=True)
-            df_right = df_left.iloc[split_idx:]
-            df_left = df_left.iloc[:split_idx]
-            print(df_left.shape, df_right.shape)
-            min_gini_left = self.gini_impurity(df_left, target)
-            min_gini_right = self.gini_impurity(df_right, target)
+        return self.splits
 
-            for gini in [min_gini_left, min_gini_right]:
-                feature, threshold, thresh_idx = (
-                    gini.name,
-                    gini["threshold"],
-                    gini["thresh idx"],
-                )
-                splits.append([feature, threshold, thresh_idx])
-            curr_depth += 1
-
-        return splits
-
+    def train(self, dataset, target):
         """
-        df = pd.DataFrame(splits, columns=["feature", "threshold", "min gini"])
-        df.set_index("feature", inplace=True)
+        Main method for training model
 
-        return df
+        Attributes
+        ----------
+        dataset: pandas dataframe
+        target: string
+                name of target column in dataset
         """
+        pass
 
     def predict(self, predict_features):
         """
@@ -259,5 +242,5 @@ class DecisionTree:
 
 data = pd.read_csv("wine.csv")
 
-tree = DecisionTree("regressor", max_depth=7)
-print(tree.get_best_split(data, "quality").to_string())
+tree = DecisionTree("regressor")
+print(tree.get_best_split(data, "quality"))

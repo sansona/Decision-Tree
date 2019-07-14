@@ -28,6 +28,20 @@ import numpy as np
 import pandas as pd
 
 
+class Node:
+    def __init__(self, condition):
+        # condition should be a dict [feature: threshold]
+        self.left = None
+        self.right = None
+        self.condition = condition
+
+    def insert(self, condition):
+        pass
+
+    def printnode(self):
+        return self.condition
+
+
 class DecisionTree:
     """
     Decision Tree classifier/regressor
@@ -87,37 +101,42 @@ class DecisionTree:
         ----------
         dataset: pandas dataframe
         target: string
-            name of target column in dataset
+                name of target column in dataset
         """
         pass
 
     def gini_impurity(self, dataset, target):
         """
-        Calculates gini impurity of all features in dataset
+        Calculates gini impurity of all features in dataset. Evaluates
+        all possible thresholds for all features & values in dataset and
+        returns best threshold
 
         Attributes
         ----------
         dataset: pandas dataframe
-            dataframe containing all features & target
+            dataframe containing all features & target. Since this
+            function is called from get_best_split(), len(dataset.columns)
+            will decrease by 1 everytime it's called
         target: string
             column name of target
 
         Returns
         -------
-        Dataframe containing feature and threshold of best split
+        Dataframe containing feature name, best threshold, and gini score
+        corresponding to best threshold
         """
-        impurities = []
+        impurities = list()
         target_np = np.array(dataset[target])
         num_target = len(dataset[target])
 
         # calculate gini impurity for each feature, append
-        # (feature name, min impurity, min impurity index) to impurities list
+        # (feature name, threshold val, min impurity)
         features = list(dataset.drop([target], axis=1))
         for feature in features:
             feature_val = np.array(dataset[feature])
             possible_thresholds = np.unique(feature_val)
-            feature_impurity = []
-            # for each threa
+            feature_impurity = []  # gini impurities for each sample
+
             for threshold in possible_thresholds:
                 selection = feature_val >= threshold
                 right = target_np[selection]
@@ -132,45 +151,77 @@ class DecisionTree:
                     (np.array(left_dist) / (num_target - num_right)) ** 2
                 )
 
+                # save gini impurity score for threshold
                 gini_split = (
-                    num_right * gini_right +
-                    (num_target - num_right) * gini_left
+                    num_right * gini_right + (num_target - num_right) * gini_left
                 ) / num_target
                 feature_impurity.append(gini_split)
 
-            impurities.append(
-                [min(feature_impurity), feature_impurity.index(
-                    min(feature_impurity))]
-            )
+            # save threshold value and gini value corresponding to min gini
+            thresh_idx = feature_impurity.index(min(feature_impurity))
+            impurities.append([feature_val[thresh_idx], min(feature_impurity)])
 
         # convert gini data to pandas dataframe for easier handling
         df = pd.DataFrame(impurities)
         df = df.transpose()
         df.columns = features
-        df.index = ["min gini", "min gini idx"]
+        df.index = ["threshold", "min gini"]
         df = df.transpose()
 
         return df.loc[df["min gini"].idxmin()]
 
     def get_best_split(self, dataset, target):
         """
-        1. load & properly format dataset
-        2. Feed dataset into gini_impurity function
-        3. Split dataset at threshold from gini_impurity()
-        4. Store nodes
-        5. Recalculate get_best_split on new dataset
+        Calculates best thresholds for entirety of dataset by
+        iteratively calling gini_impurity and storing best feature/threshold
+
+        Attributes
+        ----------
+        dataset: pandas dataframe
+            dataframe containing all features & target
+        target: string
+            column name of target
+
+        Returns
+        -------
+        Dataframe containing best threshold for each feature
         """
-        pass
+        # if initialize with no specified max_depth, let tree grow to
+        # theoretical max depth. Use dummy value for theoretical max
+        if self.max_depth == None:
+            depth = 9999999
+        else:
+            depth = self.max_depth
+
+        # while true, find best threshold, then remove threshold feature
+        # and repeat until reach max_depth or run out of features
+
+        """
+        TODO: logic here is incorrect - shouldn't be removing entire feature
+        Instead. should be dividing dataset into two vals accoring to threshold
+        """
+        splits = list()
+        curr_depth = 0
+        while curr_depth <= depth and curr_depth < len(dataset.columns):
+            min_gini = self.gini_impurity(dataset, target)
+            splits.append([min_gini.name, min_gini["threshold"], min_gini["min gini"]])
+            dataset.drop(min_gini.name, axis=1, inplace=True)
+            curr_depth += 1
+
+        df = pd.DataFrame(splits, columns=["feature", "threshold", "min gini"])
+        df.set_index("feature", inplace=True)
+
+        return df
 
     def predict(self, predict_features):
-        '''
+        """
         Should mirror sklearn predict function - take in prediction features and outputs
         prediction
-        '''
+        """
         pass
 
 
 data = pd.read_csv("wine.csv")
 
 tree = DecisionTree("regressor", max_depth=10, min_sample_split=5)
-print(tree.gini_impurity(data, "quality"))
+print(tree.get_best_split(data, "quality").to_string())

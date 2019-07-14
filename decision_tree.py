@@ -134,7 +134,7 @@ class DecisionTree:
         features = list(dataset.drop([target], axis=1))
         for feature in features:
             feature_val = np.array(dataset[feature])
-            possible_thresholds = np.unique(feature_val)
+            possible_thresholds = sorted(feature_val)
             feature_impurity = []  # gini impurities for each sample
 
             for threshold in possible_thresholds:
@@ -153,19 +153,22 @@ class DecisionTree:
 
                 # save gini impurity score for threshold
                 gini_split = (
-                    num_right * gini_right + (num_target - num_right) * gini_left
+                    num_right * gini_right +
+                    (num_target - num_right) * gini_left
                 ) / num_target
                 feature_impurity.append(gini_split)
 
-            # save threshold value and gini value corresponding to min gini
+            # save value, index, and gini score of threshold
             thresh_idx = feature_impurity.index(min(feature_impurity))
-            impurities.append([feature_val[thresh_idx], min(feature_impurity)])
+            impurities.append(
+                [feature_val[thresh_idx], thresh_idx, min(feature_impurity)]
+            )
 
         # convert gini data to pandas dataframe for easier handling
         df = pd.DataFrame(impurities)
         df = df.transpose()
         df.columns = features
-        df.index = ["threshold", "min gini"]
+        df.index = ["threshold", "thresh idx", "min gini"]
         df = df.transpose()
 
         return df.loc[df["min gini"].idxmin()]
@@ -196,22 +199,55 @@ class DecisionTree:
         # while true, find best threshold, then remove threshold feature
         # and repeat until reach max_depth or run out of features
 
-        """
-        TODO: logic here is incorrect - shouldn't be removing entire feature
-        Instead. should be dividing dataset into two vals accoring to threshold
-        """
         splits = list()
         curr_depth = 0
-        while curr_depth <= depth and curr_depth < len(dataset.columns):
+        # base case - for first split, feature to split is unknown
+        if curr_depth == 0:
             min_gini = self.gini_impurity(dataset, target)
-            splits.append([min_gini.name, min_gini["threshold"], min_gini["min gini"]])
-            dataset.drop(min_gini.name, axis=1, inplace=True)
+            feature, threshold, thresh_idx = (
+                min_gini.name,
+                min_gini["threshold"],
+                min_gini["thresh idx"],
+            )
+            splits.append([feature, threshold, thresh_idx])
             curr_depth += 1
 
+        # TODO - this SHOULD iterate through and run gini_impurity on each
+        # subset of the dataframe, appending the proper split to some
+        # as of now undecided data structure
+        df_left = dataset.copy(deep=True)
+        df_right = dataset.copy(deep=True)
+        while curr_depth <= depth and curr_depth < len(dataset.columns):
+            split_feature = splits[-1][0]
+            split_idx = int(splits[-1][-1])
+
+            print(split_feature)
+            # print(splits)
+            # sort values, split dataframe @ thresh index
+            df_left.sort_values(split_feature, inplace=True)
+            df_right = df_left.iloc[split_idx:]
+            df_left = df_left.iloc[:split_idx]
+            print(df_left.shape, df_right.shape)
+            min_gini_left = self.gini_impurity(df_left, target)
+            min_gini_right = self.gini_impurity(df_right, target)
+
+            for gini in [min_gini_left, min_gini_right]:
+                feature, threshold, thresh_idx = (
+                    gini.name,
+                    gini["threshold"],
+                    gini["thresh idx"],
+                )
+                splits.append([feature, threshold, thresh_idx])
+            curr_depth += 1
+
+        return splits
+
+        """
         df = pd.DataFrame(splits, columns=["feature", "threshold", "min gini"])
         df.set_index("feature", inplace=True)
 
         return df
+        """
 
     def predict(self, predict_features):
         """
@@ -223,5 +259,5 @@ class DecisionTree:
 
 data = pd.read_csv("wine.csv")
 
-tree = DecisionTree("regressor", max_depth=10, min_sample_split=5)
+tree = DecisionTree("regressor", max_depth=7)
 print(tree.get_best_split(data, "quality").to_string())

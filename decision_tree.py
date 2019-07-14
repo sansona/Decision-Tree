@@ -85,7 +85,9 @@ class DecisionTree:
         Raises
         ------
         TypeError
-            If model_type not specified during initialization
+            If no value for model_type is passed
+        ValueError
+            If value for model_type not classifier or regressor
         """
         self.model_type = model_type
         self.max_depth = max_depth
@@ -94,6 +96,15 @@ class DecisionTree:
         self.min_sample_leaf = min_sample_leaf
         self.curr_nodes = 0
         self.splits = list()
+
+        if model_type not in ['classifier', 'regressor']:
+            raise ValueError('Missing arg: model_type')
+        for var in [self.max_depth, self.max_features_split,
+                    self.min_sample_split, self.min_sample_leaf]:
+            if not isinstance(var, int) and var is not None:
+                raise TypeError(f'{var} of wrong type')
+            if var is not None and var < 1:
+                raise TypeError(f'{var} cannot be a negative number')
 
     def gini_impurity(self, dataset, target):
         """
@@ -107,6 +118,7 @@ class DecisionTree:
             dataframe containing all features & target. Since this
             function is called from get_best_split(), len(dataset.columns)
             will decrease by 1 everytime it's called
+
         target: string
             column name of target
 
@@ -172,6 +184,7 @@ class DecisionTree:
         ----------
         dataset: pandas dataframe
             dataframe containing all features & target
+
         target: string
             column name of target
 
@@ -218,6 +231,7 @@ class DecisionTree:
             else:
                 continue
 
+        # TODO - need to make sure this is doing what it should be doing
         return self.splits
 
     def train(self, dataset, target):
@@ -227,6 +241,7 @@ class DecisionTree:
         Attributes
         ----------
         dataset: pandas dataframe
+
         target: string
                 name of target column in dataset
         """
@@ -240,7 +255,9 @@ class DecisionTree:
         pass
 
 
+'''
 data = pd.read_csv("wine.csv")
 
-tree = DecisionTree("regressor")
+tree = DecisionTree("regressor", max_depth=3)
 print(tree.get_best_split(data, "quality"))
+'''

@@ -5,23 +5,23 @@ should benchmark again sklearn algorithms on titanic and diabetes dataset
 to see efficacy
 
 Functionality:
-    should contain hyperparameters
-    - max tree depth
-    - minimum samples to split node
-    - max features for each split
-    - should return time needed to train model
+	should contain hyperparameters
+	- max tree depth
+	- minimum samples to split node
+	- max features for each split
+	- should return time needed to train model
 
-    should be able to fit to any generic var;response dataset and
-    evaluate both classification/regression performance
+	should be able to fit to any generic var;response dataset and
+	evaluate both classification/regression performance
 
 
 Usage design: similar to sklearn
-    model = DecisionTree()
-    model.fit(x_train, y_train)
-    perf = model.evaluate(x_test, y_test)
-    time = model.train_time()
+	model = DecisionTree()
+	model.fit(x_train, y_train)
+	perf = model.evaluate(x_test, y_test)
+	time = model.train_time()
 
-    evaluate function should return appropriate performance metrics
+	evaluate function should return appropriate performance metrics
 """
 
 import numpy as np
@@ -49,22 +49,33 @@ class DecisionTree:
     Attributes
     ----------
     model_type: string
-        Initialze model as classifier or regressor
+            Initialze model as classifier or regressor
 
     max_depth: int or None
-        Maximum depth of tree
+            Maximum depth of tree
 
     max_features_split: int or None
-        Number of features to consider in node split
+            Number of features to consider in node split
 
     min_sample_split: int
-        Minimum number of samples in node to be split
+            Minimum number of samples in node to be split
 
     min_sample_leaf: int
-        Minimum number of samples covered by leaf to be split
+            Minimum number of samples covered by leaf to be split
 
     Methods
     -------
+    calculate_split_gini:
+            Returns gini calculation for feature split
+
+    get_best_gini_split:
+            Calculates gini impurity of all features in dataset. Evaluates
+            all possible thresholds for all features & values in dataset and
+            returns best split conditions. Used as cost function in classifier
+
+    generate_tree:
+            Recursively generates decision tree determining
+            best splits
     """
 
     def __init__(
@@ -80,14 +91,14 @@ class DecisionTree:
 
         Returns
         -------
-            DecisionTree class object
+                DecisionTree class object
 
         Raises
         ------
         TypeError
-            If no value for model_type is passed
+                If no value for model_type is passed
         ValueError
-            If value for model_type not classifier or regressor
+                If value for model_type not classifier or regressor
         """
         self.model_type = model_type
         self.max_depth = max_depth
@@ -97,74 +108,100 @@ class DecisionTree:
         self.curr_nodes = 0
         self.splits = list()
 
-        if model_type not in ['classifier', 'regressor']:
-            raise ValueError('Missing arg: model_type')
-        for var in [self.max_depth, self.max_features_split,
-                    self.min_sample_split, self.min_sample_leaf]:
+        # quick checks to ensure object initiated with arguments
+        # of proper types
+        if model_type not in ["classifier", "regressor"]:
+            raise ValueError("Missing arg: model_type")
+        for var in [
+            self.max_depth,
+            self.max_features_split,
+            self.min_sample_split,
+            self.min_sample_leaf,
+        ]:
             if not isinstance(var, int) and var is not None:
-                raise TypeError(f'{var} of wrong type')
+                raise TypeError(f"{var} of wrong type")
             if var is not None and var < 1:
-                raise TypeError(f'{var} cannot be a negative number')
+                raise TypeError(f"{var} cannot be a negative number")
 
-    def gini_impurity(self, dataset, target):
+    def calculate_split_gini(self, right, left, len_target):
+        """
+        returns gini calculation for feature split
+
+        Args
+        ----
+        right: nupmy array
+                Side of dataset split at value
+        left: numpy array
+                Remaining side of dataset split at value
+        len_target: int
+                Number of datapoints in target column
+
+        Returns
+        -------
+        Float corresponding to gini impurity of right/left split
+
+        """
+        _, right_dist = np.unique(right, return_counts=True)
+        _, left_dist = np.unique(left, return_counts=True)
+
+        len_right = right.size
+
+        gini_right = 1 - np.sum((np.array(right_dist) / len_right) ** 2)
+        gini_left = 1 - np.sum((np.array(left_dist) /
+                                (len_target - len_right)) ** 2)
+
+        # weighted sum of gini of individual splits
+        gini_split = (
+            len_right * gini_right + (len_target - len_right) * gini_left
+        ) / len_target
+
+        return gini_split
+
+    def get_best_gini_split(self, dataset, target):
         """
         Calculates gini impurity of all features in dataset. Evaluates
         all possible thresholds for all features & values in dataset and
-        returns best threshold
+        returns best split conditions. Used as cost function in classifier
 
         Attributes
         ----------
         dataset: pandas dataframe
-            dataframe containing all features & target. Since this
-            function is called from get_best_split(), len(dataset.columns)
-            will decrease by 1 everytime it's called
+                Dataframe containing all features & target
 
         target: string
-            column name of target
+                Column name of target
 
         Returns
         -------
+        TODO: think of or implement better data class -
+                maybe try 3.7's dataclasses
         Dataframe containing feature name, best threshold, and gini score
         corresponding to best threshold
         """
         impurities = list()
-        target_np = np.array(dataset[target])
-        num_target = len(dataset[target])
+        target_np_array = np.array(dataset[target])
+        len_target = len(dataset[target])
 
-        # calculate gini impurity for each feature, append
-        # (feature name, threshold val, min impurity)
+        # calculate gini impurity for each possible split
         features = list(dataset.drop([target], axis=1))
         for feature in features:
             feature_val = np.array(dataset[feature])
             possible_thresholds = sorted(feature_val)
-            feature_impurity = []  # gini impurities for each sample
+            feature_impurity = list()  # gini impurities for each sample
 
-            for threshold in possible_thresholds:
-                selection = feature_val >= threshold
-                right = target_np[selection]
-                left = target_np[~selection]
+            for value in possible_thresholds:
+                selection = feature_val >= value
+                right = target_np_array[selection]
+                left = target_np_array[~selection]
 
-                num_right = right.size
-
-                _, right_dist = np.unique(right, return_counts=True)
-                _, left_dist = np.unique(left, return_counts=True)
-                gini_right = 1 - np.sum((np.array(right_dist) / num_right) ** 2)
-                gini_left = 1 - np.sum(
-                    (np.array(left_dist) / (num_target - num_right)) ** 2
-                )
-
-                # save gini impurity score for threshold
-                gini_split = (
-                    num_right * gini_right +
-                    (num_target - num_right) * gini_left
-                ) / num_target
+                gini_split = self.calculate_split_gini(right, left, len_target)
                 feature_impurity.append(gini_split)
 
-            # save value, index, and gini score of threshold
-            thresh_idx = feature_impurity.index(min(feature_impurity))
-            impurities.append(
-                [feature_val[thresh_idx], thresh_idx, min(feature_impurity)]
-            )
+            # save value, index, and gini score of split with minimum impurity
+            min_impurity = min(feature_impurity)
+            min_gini_idx = feature_impurity.index(min_impurity)
+            impurities.append([feature_val[min_gini_idx],
+                               min_gini_idx, min_impurity])
 
         # convert gini data to pandas dataframe for easier handling
         df = pd.DataFrame(impurities)
@@ -175,23 +212,44 @@ class DecisionTree:
 
         return df.loc[df["min gini"].idxmin()]
 
-    def get_best_split(self, dataset, target):
+    def get_best_mse_split(self, dataset, target):
         """
-        Calculates best thresholds for entirety of dataset by
-        recursively calling itself on subsequent splits
+        Calculates mean squared error of all features in dataset. Evaluates
+        all possible thresholds for all features & values in dataset and
+        returns best split conditions. Used as cost function in regressor
 
         Attributes
         ----------
         dataset: pandas dataframe
-            dataframe containing all features & target
+                Dataframe containing all features & target
 
         target: string
-            column name of target
+                Column name of target
+
+        Returns
+        -------
+        Dataframe containing feature name, best threshold, and gini score
+        corresponding to best threshold
+        """
+        pass
+
+    def generate_tree(self, dataset, target):
+        """
+        Recursively generates decision tree determining
+        best splits
+
+        Attributes
+        ----------
+        dataset: pandas dataframe
+                Dataframe containing all features & target
+
+        target: string
+                Column name of target
 
         Returns
         -------
         List of dictionaries of form:
-            {Feature -> str: [threshold, threshold_idx] -> list}
+                {Feature -> str: [threshold, threshold_idx] -> list}
         where each dictionary is a node
         """
         # if initialize with no specified max_depth, let tree grow to
@@ -203,7 +261,7 @@ class DecisionTree:
 
         while self.curr_nodes < 2 * depth + 1:
             # get split details for current dataset
-            min_gini = self.gini_impurity(dataset, target)
+            min_gini = self.get_best_gini_split(dataset, target)
             feature, threshold, thresh_idx = (
                 min_gini.name,
                 min_gini["threshold"],
@@ -211,6 +269,7 @@ class DecisionTree:
             )
             # append split conditions to self.split if condition not
             # already there
+            # TODO: cleanup loop execution
             split_node = {feature: [threshold, thresh_idx]}
             if split_node not in self.splits:
                 self.splits.append(split_node)
@@ -226,8 +285,8 @@ class DecisionTree:
                 df = dataset.sort_values(feature)
                 left = df[:thresh_idx]
                 right = df[thresh_idx:]
-                self.get_best_split(left, target)
-                self.get_best_split(right, target)
+                self.generate_tree(left, target)
+                self.generate_tree(right, target)
             else:
                 continue
 
@@ -243,7 +302,7 @@ class DecisionTree:
         dataset: pandas dataframe
 
         target: string
-                name of target column in dataset
+                        name of target column in dataset
         """
         pass
 
@@ -255,9 +314,9 @@ class DecisionTree:
         pass
 
 
-'''
+"""
 data = pd.read_csv("wine.csv")
 
 tree = DecisionTree("regressor", max_depth=3)
-print(tree.get_best_split(data, "quality"))
-'''
+print(tree.generate_tree(data, "quality"))
+"""

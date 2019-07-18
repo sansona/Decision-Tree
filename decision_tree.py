@@ -38,24 +38,55 @@ class DecisionNode:
     -----------
     feature: str
         Name of feature
+
     threshold: float
         Value of threshold value corresponding to min gini
+
     idx: int
         Index of threshold value
+
     gini: float
         Gini impurity corresponding to threshold
+
     left_child: DecisionNode
         Node corresponding to values below threshold
+
     right_child: DecisionNode
         Node corresponding to values above threshold
-    """
 
+    #TODO: write tests for this
+    TODO: add methods for attaching nodes & traversing tree
+    """
     feature: str
     threshold: float
     idx: int
     gini: float
     left_child = None
     right_child = None
+
+    def insert_node(self, data):
+        """
+        Method for growing tree via. comparing gini values
+        Inspired by: https://www.tutorialspoint.com/python/python_binary_tree
+
+        Attributes
+        ----------
+        data: tuple
+            Tuple containing feature, threshold, idx, and gini var
+        """
+        # WIP
+        # TODO: cleanup DecisionNode init
+        feature, threshold, idx, gini = dataset
+        if gini < self.gini:
+            if self.left is None:
+                self.left = DecisionNode(data)
+            else:
+                self.left.insert_node(data)
+        elif gini > self.gini:
+            if self.right is None:
+                self.right = DecisionNode(data)
+            else:
+                self.right.insert_node(data)
 
 
 class DecisionTree:
@@ -65,33 +96,33 @@ class DecisionTree:
     Attributes
     ----------
     model_type: string
-            Initialze model as classifier or regressor
+        Initialze model as classifier or regressor
 
     max_depth: int or None
-            Maximum depth of tree
+        Maximum depth of tree
 
     max_features_split: int or None
-            Number of features to consider in node split
+        Number of features to consider in node split
 
     min_sample_split: int
-            Minimum number of samples in node to be split
+        Minimum number of samples in node to be split
 
     min_sample_leaf: int
-            Minimum number of samples covered by leaf to be split
+        Minimum number of samples covered by leaf to be split
 
     Methods
     -------
     calculate_split_gini:
-            Returns gini calculation for feature split
+        Returns gini calculation for feature split
 
     get_best_gini_split:
-            Calculates gini impurity of all features in dataset. Evaluates
-            all possible thresholds for all features & values in dataset and
-            returns best split conditions. Used as cost function in classifier
+        Calculates gini impurity of all features in dataset. Evaluates
+        all possible thresholds for all features & values in dataset and
+        returns best split conditions. Used as cost function in classifier
 
     generate_tree:
-            Recursively generates decision tree determining
-            best splits
+        Recursively generates decision tree determining
+        best splits
     """
 
     def __init__(
@@ -107,7 +138,7 @@ class DecisionTree:
 
         Returns
         -------
-                DecisionTree class object
+            DecisionTree class object
 
         Raises
         ------
@@ -146,11 +177,11 @@ class DecisionTree:
         Args
         ----
         right: nupmy array
-                Side of dataset split at value
+            Side of dataset split at value
         left: numpy array
-                Remaining side of dataset split at value
+            Remaining side of dataset split at value
         len_target: int
-                Number of datapoints in target column
+            Number of datapoints in target column
 
         Returns
         -------
@@ -182,10 +213,10 @@ class DecisionTree:
         Attributes
         ----------
         dataset: pandas dataframe
-                Dataframe containing all features & target
+            Dataframe containing all features & target
 
         target: string
-                Column name of target
+            Column name of target
 
         Returns
         -------
@@ -211,7 +242,6 @@ class DecisionTree:
                 feature_impurity.append(gini_split)
 
             # save value, index, and gini score of split with minimum impurity
-
             min_impurity = min(feature_impurity)
             min_gini_idx = feature_impurity.index(min_impurity)
             decision = DecisionNode(
@@ -221,7 +251,7 @@ class DecisionTree:
             nodes.append(decision)
 
         # iterate through nodes, return node corresponding to minimum gini
-        min_impurity_dummy = 999999
+        min_impurity_dummy = 9999999
         for node in nodes:
             if node.gini < min_impurity_dummy:
                 min_impurity_dummy = node.gini
@@ -238,10 +268,10 @@ class DecisionTree:
         Attributes
         ----------
         dataset: pandas dataframe
-                Dataframe containing all features & target
+            Dataframe containing all features & target
 
         target: string
-                Column name of target
+            Column name of target
 
         Returns
         -------
@@ -258,10 +288,10 @@ class DecisionTree:
         Attributes
         ----------
         dataset: pandas dataframe
-                Dataframe containing all features & target
+            Dataframe containing all features & target
 
         target: string
-                Column name of target
+            Column name of target
 
         Returns
         -------
@@ -286,12 +316,13 @@ class DecisionTree:
             )
             # append split conditions to self.split if condition not
             # already there
-            # TODO: cleanup loop execution
             # TODO: self.splits could be a better datatype
             if decision not in self.splits:
                 self.splits.append(decision)
                 self.curr_nodes += 1
             else:
+                # stops infinite loop case where minimum global
+                # impurity is reached but not yet reached max depth
                 break
 
             # thresh_idx == 0 corresponds to a split with no decrease
@@ -304,8 +335,6 @@ class DecisionTree:
                 right = df[thresh_idx:]
                 self.generate_tree(left, target)
                 self.generate_tree(right, target)
-            else:
-                continue
 
         # TODO - need to make sure this is doing what it should be doing
         return self.splits
@@ -319,7 +348,7 @@ class DecisionTree:
         dataset: pandas dataframe
 
         target: string
-                        name of target column in dataset
+            name of target column in dataset
         """
         pass
 
@@ -331,9 +360,8 @@ class DecisionTree:
         pass
 
 
-'''
 data = pd.read_csv("wine.csv")
 
 tree = DecisionTree("regressor", max_depth=3)
 print(tree.generate_tree(data, "quality"))
-'''
+print(len(data["quality"]))

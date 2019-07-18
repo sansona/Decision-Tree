@@ -5,41 +5,57 @@ should benchmark again sklearn algorithms on titanic and diabetes dataset
 to see efficacy
 
 Functionality:
-	should contain hyperparameters
-	- max tree depth
-	- minimum samples to split node
-	- max features for each split
-	- should return time needed to train model
+    should contain hyperparameters
+    - max tree depth
+    - minimum samples to split node
+    - max features for each split
+    - should return time needed to train model
 
-	should be able to fit to any generic var;response dataset and
-	evaluate both classification/regression performance
+    should be able to fit to any generic var;response dataset and
+    evaluate both classification/regression performance
 
 
 Usage design: similar to sklearn
-	model = DecisionTree()
-	model.fit(x_train, y_train)
-	perf = model.evaluate(x_test, y_test)
-	time = model.train_time()
+    model = DecisionTree()
+    model.fit(x_train, y_train)
+    perf = model.evaluate(x_test, y_test)
+    time = model.train_time()
 
-	evaluate function should return appropriate performance metrics
+    evaluate function should return appropriate performance metrics
 """
 
+from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
 
-class Node:
-    def __init__(self, condition):
-        # condition should be a dict [feature: threshold]
-        self.left = None
-        self.right = None
-        self.condition = condition
+@dataclass
+class DecisionNode:
+    """
+    Base node class for decision tree
 
-    def insert(self, condition):
-        pass
+    Attributes:
+    -----------
+    feature: str
+        Name of feature
+    threshold: float
+        Value of threshold value corresponding to min gini
+    idx: int
+        Index of threshold value
+    gini: float
+        Gini impurity corresponding to threshold
+    left_child: DecisionNode
+        Node corresponding to values below threshold
+    right_child: DecisionNode
+        Node corresponding to values above threshold
+    """
 
-    def printnode(self):
-        return self.condition
+    feature: str
+    threshold: float
+    idx: int
+    gini: float
+    left_child = None
+    right_child = None
 
 
 class DecisionTree:
@@ -173,12 +189,9 @@ class DecisionTree:
 
         Returns
         -------
-        TODO: think of or implement better data class -
-                maybe try 3.7's dataclasses
-        Dataframe containing feature name, best threshold, and gini score
-        corresponding to best threshold
+        DecisionNode corresponding to feature split that minimzes gini
         """
-        impurities = list()
+        nodes = list()
         target_np_array = np.array(dataset[target])
         len_target = len(dataset[target])
 
@@ -198,19 +211,23 @@ class DecisionTree:
                 feature_impurity.append(gini_split)
 
             # save value, index, and gini score of split with minimum impurity
+
             min_impurity = min(feature_impurity)
             min_gini_idx = feature_impurity.index(min_impurity)
-            impurities.append([feature_val[min_gini_idx],
-                               min_gini_idx, min_impurity])
+            decision = DecisionNode(
+                feature, feature_val[min_gini_idx], min_gini_idx, min_impurity
+            )
 
-        # convert gini data to pandas dataframe for easier handling
-        df = pd.DataFrame(impurities)
-        df = df.transpose()
-        df.columns = features
-        df.index = ["threshold", "thresh idx", "min gini"]
-        df = df.transpose()
+            nodes.append(decision)
 
-        return df.loc[df["min gini"].idxmin()]
+        # iterate through nodes, return node corresponding to minimum gini
+        min_impurity_dummy = 999999
+        for node in nodes:
+            if node.gini < min_impurity_dummy:
+                min_impurity_dummy = node.gini
+                best_gini_split = node
+
+        return best_gini_split
 
     def get_best_mse_split(self, dataset, target):
         """
@@ -261,18 +278,18 @@ class DecisionTree:
 
         while self.curr_nodes < 2 * depth + 1:
             # get split details for current dataset
-            min_gini = self.get_best_gini_split(dataset, target)
+            decision = self.get_best_gini_split(dataset, target)
             feature, threshold, thresh_idx = (
-                min_gini.name,
-                min_gini["threshold"],
-                int(min_gini["thresh idx"]),
+                decision.feature,
+                decision.threshold,
+                decision.idx,
             )
             # append split conditions to self.split if condition not
             # already there
             # TODO: cleanup loop execution
-            split_node = {feature: [threshold, thresh_idx]}
-            if split_node not in self.splits:
-                self.splits.append(split_node)
+            # TODO: self.splits could be a better datatype
+            if decision not in self.splits:
+                self.splits.append(decision)
                 self.curr_nodes += 1
             else:
                 break
@@ -314,9 +331,9 @@ class DecisionTree:
         pass
 
 
-"""
+'''
 data = pd.read_csv("wine.csv")
 
 tree = DecisionTree("regressor", max_depth=3)
 print(tree.generate_tree(data, "quality"))
-"""
+'''

@@ -1,32 +1,13 @@
 """
 From "scratch" implementation of decision tree classifier/regressor
 
-should benchmark again sklearn algorithms on titanic and diabetes dataset
-to see efficacy
-
-Functionality:
-    should contain hyperparameters
-    - max tree depth
-    - minimum samples to split node
-    - max features for each split
-    - should return time needed to train model
-
-    should be able to fit to any generic var;response dataset and
-    evaluate both classification/regression performance
-
-
 Usage design: similar to sklearn
-    model = DecisionTree()
-    model.fit(x_train, y_train)
-    perf = model.evaluate(x_test, y_test)
-    time = model.train_time()
-
-    evaluate function should return appropriate performance metrics
+    model = DecisionTree("classifier")
+    model.train(features, predictor)
 """
 
 from dataclasses import dataclass
 import numpy as np
-import pandas as pd
 
 ARBITRARY_LARGE_N = 999999999
 
@@ -42,39 +23,39 @@ class DecisionNode:
     Attributes:
     -----------
     feature: str
-                    Name of feature
+        Name of feature
 
     threshold: float
-                    Value of threshold value corresponding to min gini
+        Value of threshold value corresponding to min gini
 
     idx: int
-                    Index of threshold value
+        Index of threshold value
 
     gini: float
-                    Gini impurity corresponding to threshold
+        Gini impurity corresponding to threshold
 
     position: int
-                    Keeps track of node position in tree
+        Keeps track of node position in tree
 
     left_child: DecisionNode
-                    Node corresponding to values below threshold
+        Node corresponding to values below threshold
 
     right_child: DecisionNode
-                    Node corresponding to values above threshold
+        Node corresponding to values above threshold
 
     Methods
     -------
     return_valid_init:
-                    Tests whether init arguments adhere to initialization restrictions
+        Tests whether init arguments adhere to initialization restrictions
 
     insert_node:
-                    Grow tree by comparing gini values
+        Grow tree by comparing gini values
 
     in_tree:
-                    Recursively traverses tree to determine if node exists in tree
+        Recursively traverses tree to determine if node exists in tree
 
     display_tree:
-                    Displays entire tree by recursively traversing tree
+        Displays entire tree by recursively traversing tree
     """
 
     feature: str
@@ -129,8 +110,6 @@ class DecisionNode:
     def display_tree(self):
         """
         Displays entire tree by recursively traversing tree
-
-        # TODO: figure out how to format tree
         """
         print(f"{self.position} {self.feature} : {self.threshold}")
         if self.left_child is not None:
@@ -147,47 +126,41 @@ class DecisionTree:
     Attributes
     ----------
     model_type: string
-                    Initialze model as classifier or regressor
+        Initialze model as classifier or regressor
 
     max_depth: int or None
-                    Maximum depth of tree
+        Maximum depth of tree
 
     max_features_split: int or None
-                    Number of features to consider in node split
+        Number of features to consider in node split
 
     min_sample_split: int
-                    Minimum number of samples in node to be split
+        Minimum number of samples in node to be split
 
     min_sample_leaf: int
-                    Minimum number of samples covered by leaf to be split
+        Minimum number of samples covered by leaf to be split
 
     Methods
     -------
     return_valid_init:
-                    Tests whether init arguments adhere to initialization restrictions
+        Tests whether init arguments adhere to initialization restrictions
     calculate_split_gini:
-                    Returns gini calculation for feature split
+        Returns gini calculation for feature split
 
     get_best_gini_split:
-                    Calculates gini impurity of all features in dataset. Evaluates
-                    all possible thresholds for all features & values in dataset and
-                    returns best split conditions. Used as cost function in classifier
-    get_best_mse_split:
-                    Calculates mse of all features in dataset. Used as cost function in regressor
+        Calculates gini impurity of all features in dataset. Evaluates
+        all possible thresholds for all features & values in dataset and
+        returns best split conditions. Used as cost function in classifier
 
     train:
-                    Recursively generates decision tree determining
-                    best splits
-
-    predict:
-                    Returns prediction for feature by traversing trained
-                    DecisionTree object
+        Recursively generates decision tree determining
+        best splits
     """
 
     model_type: str
-    max_depth: int = None
-    max_features_split: int = None
-    min_sample_split: int = None
+    max_depth = None
+    max_features_split = None
+    min_sample_split = None
     min_sample_leaf: int = 1
     curr_nodes: int = 0
     root = None
@@ -218,11 +191,11 @@ class DecisionTree:
         Args
         ----
         right: nupmy array
-                        Side of dataset split at value
+            Side of dataset split at value
         left: numpy array
-                        Remaining side of dataset split at value
+            Remaining side of dataset split at value
         len_target: int
-                        Number of datapoints in target column
+            Number of datapoints in target column
 
         Returns
         -------
@@ -231,7 +204,6 @@ class DecisionTree:
         """
         _, right_dist = np.unique(right, return_counts=True)
         _, left_dist = np.unique(left, return_counts=True)
-
         len_right = right.size
 
         gini_right = 1 - np.sum((np.array(right_dist) / len_right) ** 2)
@@ -255,10 +227,10 @@ class DecisionTree:
         Attributes
         ----------
         dataset: pandas dataframe
-                        Dataframe containing all features & target
+            Dataframe containing all features & target
 
         target: string
-                        Column name of target
+            Column name of target
 
         Returns
         -------
@@ -301,27 +273,6 @@ class DecisionTree:
 
         return best_gini_split
 
-    def get_best_mse_split(self, dataset, target):
-        """
-        Calculates mean squared error of all features in dataset. Evaluates
-        all possible thresholds for all features & values in dataset and
-        returns best split conditions. Used as cost function in regressor
-
-        Attributes
-        ----------
-        dataset: pandas dataframe
-                        Dataframe containing all features & target
-
-        target: string
-                        Column name of target
-
-        Returns
-        -------
-        Dataframe containing feature name, best threshold, and gini score
-        corresponding to best threshold
-        """
-        pass
-
     def train(self, dataset, target):
         """
 
@@ -331,10 +282,10 @@ class DecisionTree:
         Attributes
         ----------
         dataset: pandas dataframe
-                        Dataframe containing all features & target
+            Dataframe containing all features & target
 
         target: string
-                        Column name of target
+            Column name of target
 
         Returns
         -------
@@ -383,22 +334,4 @@ class DecisionTree:
                 self.train(left, target)
                 self.train(right, target)
 
-        # TODO - need to make sure this is doing what it should be doing
         return self.root
-
-    def predict(self, predict_features):
-        """
-        Should mirror sklearn predict function - take in prediction features
-        and output prediction
-        """
-        pass
-
-
-'''
-data = pd.read_csv("wine.csv")
-
-tree = DecisionTree("regressor", max_depth=3)
-tree.return_valid_init()
-trained_tree = tree.train(data, "quality")
-print(trained_tree.display_tree())
-'''

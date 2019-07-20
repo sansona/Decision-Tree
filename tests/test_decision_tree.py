@@ -1,12 +1,29 @@
 import unittest
 import pandas as pd
-from decision_tree import DecisionTree
+from decision_tree import DecisionNode, DecisionTree
 
 data = pd.read_csv("wine.csv")
 
 
+class TestDecisionNode(unittest.TestCase):
+    test_node = DecisionNode('test_node', 1, 1, 1)
+
+    def test_decision_node_init(self):
+        with self.assertRaises(TypeError):
+            DecisionNode()
+        with self.assertRaises(TypeError):
+            DecisionNode(4)
+        with self.assertRaises(TypeError):
+            DecisionNode(1, 2, 3, 4)
+        with self.assertRaises(TypeError):
+            a.insert_node('test_child')
+        with self.assertRaises(TypeError):
+            a.insert_node('test_child', 1, 1, 'str_gini')
+
+
 class TestDecisionTree(unittest.TestCase):
     def test_decision_tree_init(self):
+        # TODO: need this to call test_init()
         with self.assertRaises(TypeError):
             DecisionTree()
         with self.assertRaises(ValueError):

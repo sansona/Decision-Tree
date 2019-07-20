@@ -54,9 +54,10 @@ class DecisionNode:
     right_child: DecisionNode
         Node corresponding to values above threshold
 
-    #TODO: write tests for this
-    TODO: add methods for attaching nodes & traversing tree
+    # TODO: write tests for this
+    # TODO: add methods for attaching nodes & traversing tree
     """
+
     feature: str
     threshold: float
     idx: int
@@ -64,7 +65,7 @@ class DecisionNode:
     left_child = None
     right_child = None
 
-    def insert_node(self, data):
+    def insert_node(self, feature, threshold, idx, gini):
         """
         Method for growing tree via. comparing gini values
         Inspired by: https://www.tutorialspoint.com/python/python_binary_tree
@@ -76,19 +77,31 @@ class DecisionNode:
         """
         # WIP
         # TODO: cleanup DecisionNode init
-        feature, threshold, idx, gini = dataset
         if gini < self.gini:
-            if self.left is None:
-                self.left = DecisionNode(data)
+            if self.left_child is None:
+                self.left_child = DecisionNode(feature, threshold, idx, gini)
             else:
-                self.left.insert_node(data)
+                self.left_child.insert_node(feature, threshold, idx, gini)
         elif gini > self.gini:
-            if self.right is None:
-                self.right = DecisionNode(data)
+            if self.right_child is None:
+                self.right_child = DecisionNode(feature, threshold, idx, gini)
             else:
-                self.right.insert_node(data)
+                self.right_child.insert_node(feature, threshold, idx, gini)
+
+    def display_tree(self):
+        """
+        Displays entire tree by recursively traversing tree
+
+        # TODO: figure out how to format tree
+        """
+        print(f"{self.feature} : {self.threshold}")
+        if self.left_child is not None:
+            self.left_child.display_tree()
+        if self.right_child is not None:
+            self.right_child.display_tree()
 
 
+@dataclass
 class DecisionTree:
     """
     Decision Tree classifier/regressor
@@ -112,6 +125,8 @@ class DecisionTree:
 
     Methods
     -------
+    test_init:
+        Tests whether init arguments adhere to initialization restrictions
     calculate_split_gini:
         Returns gini calculation for feature split
 
@@ -120,51 +135,33 @@ class DecisionTree:
         all possible thresholds for all features & values in dataset and
         returns best split conditions. Used as cost function in classifier
 
-    generate_tree:
+    train:
         Recursively generates decision tree determining
         best splits
     """
 
-    def __init__(
-        self,
-        model_type: str,
-        max_depth: int = None,
-        max_features_split: int = None,
-        min_sample_split: int = 2,
-        min_sample_leaf: int = 1,
-    ):
+    model_type: str
+    max_depth: int = None
+    max_features_split: int = None
+    min_sample_split: int = None
+    min_sample_leaf: int = 1
+    curr_nodes: int = 0
+    splits = list()
+
+    def test_init(self):
         """
-        Initializes DecisionTree class with default sklearn attributes
-
-        Returns
-        -------
-            DecisionTree class object
-
-        Raises
-        ------
-        TypeError
-                If no value for model_type is passed
-        ValueError
-                If value for model_type not classifier or regressor
+        Tests whether init arguments adhere to initialization restrictions
         """
-        self.model_type = model_type
-        self.max_depth = max_depth
-        self.max_features_split = max_features_split
-        self.min_sample_split = min_sample_split
-        self.min_sample_leaf = min_sample_leaf
-        self.curr_nodes = 0
-        self.splits = list()
-
-        # quick checks to ensure object initiated with arguments
-        # of proper types
-        if model_type not in ["classifier", "regressor"]:
+        if self.model_type not in ["classifier", "regressor"]:
             raise ValueError("Missing arg: model_type")
+
         for var in [
             self.max_depth,
             self.max_features_split,
             self.min_sample_split,
             self.min_sample_leaf,
         ]:
+
             if not isinstance(var, int) and var is not None:
                 raise TypeError(f"{var} of wrong type")
             if var is not None and var < 1:
@@ -201,6 +198,7 @@ class DecisionTree:
         gini_split = (
             len_right * gini_right + (len_target - len_right) * gini_left
         ) / len_target
+        gini_split = float(f"{gini_split:.3f}")
 
         return gini_split
 
@@ -280,10 +278,11 @@ class DecisionTree:
         """
         pass
 
-    def generate_tree(self, dataset, target):
+    def train(self, dataset, target):
         """
-        Recursively generates decision tree determining
-        best splits
+
+        Trains DecisionTree recursively generates decision
+        tree determining best splits
 
         Attributes
         ----------
@@ -296,7 +295,7 @@ class DecisionTree:
         Returns
         -------
         List of dictionaries of form:
-                {Feature -> str: [threshold, threshold_idx] -> list}
+            {Feature -> str: [thershold, threshold_idx] -> list}
         where each dictionary is a node
         """
         # if initialize with no specified max_depth, let tree grow to
@@ -309,11 +308,7 @@ class DecisionTree:
         while self.curr_nodes < 2 * depth + 1:
             # get split details for current dataset
             decision = self.get_best_gini_split(dataset, target)
-            feature, threshold, thresh_idx = (
-                decision.feature,
-                decision.threshold,
-                decision.idx,
-            )
+            feature, thresh_idx = decision.feature, decision.idx
             # append split conditions to self.split if condition not
             # already there
             # TODO: self.splits could be a better datatype
@@ -333,35 +328,26 @@ class DecisionTree:
                 df = dataset.sort_values(feature)
                 left = df[:thresh_idx]
                 right = df[thresh_idx:]
-                self.generate_tree(left, target)
-                self.generate_tree(right, target)
+                self.train(left, target)
+                self.train(right, target)
 
         # TODO - need to make sure this is doing what it should be doing
         return self.splits
 
-    def train(self, dataset, target):
-        """
-        Main method for training model
-
-        Attributes
-        ----------
-        dataset: pandas dataframe
-
-        target: string
-            name of target column in dataset
-        """
-        pass
-
     def predict(self, predict_features):
         """
-        Should mirror sklearn predict function - take in prediction features and outputs
-        prediction
+        Should mirror sklearn predict function - take in prediction features
+        and outputsprediction
         """
         pass
 
+
+"""
 
 data = pd.read_csv("wine.csv")
 
 tree = DecisionTree("regressor", max_depth=3)
-print(tree.generate_tree(data, "quality"))
+tree.test_init()
+print(tree.train(data, "quality"))
 print(len(data["quality"]))
+"""

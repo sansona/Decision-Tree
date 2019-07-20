@@ -28,55 +28,81 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+ARBITRARY_LARGE_N = 999999999
+
 
 @dataclass
 class DecisionNode:
     """
     Base node class for decision tree
 
+    Initialize w/ multiple args instead of general data param
+    for ease of later access
+
     Attributes:
     -----------
     feature: str
-        Name of feature
+                    Name of feature
 
     threshold: float
-        Value of threshold value corresponding to min gini
+                    Value of threshold value corresponding to min gini
 
     idx: int
-        Index of threshold value
+                    Index of threshold value
 
     gini: float
-        Gini impurity corresponding to threshold
+                    Gini impurity corresponding to threshold
+
+    position: int
+                    Keeps track of node position in tree
 
     left_child: DecisionNode
-        Node corresponding to values below threshold
+                    Node corresponding to values below threshold
 
     right_child: DecisionNode
-        Node corresponding to values above threshold
+                    Node corresponding to values above threshold
 
-    # TODO: write tests for this
-    # TODO: add methods for attaching nodes & traversing tree
+    Methods
+    -------
+    return_valid_init:
+                    Tests whether init arguments adhere to initialization restrictions
+
+    insert_node:
+                    Grow tree by comparing gini values
+
+    in_tree:
+                    Recursively traverses tree to determine if node exists in tree
+
+    display_tree:
+                    Displays entire tree by recursively traversing tree
     """
 
     feature: str
     threshold: float
     idx: int
     gini: float
+    position: int = 0
     left_child = None
     right_child = None
+
+    def return_valid_init(self):
+        """
+        Tests whether init arguments adhere to initialization restrictions
+        """
+        assert isinstance(self.feature, str)
+        assert isinstance(self.threshold, float)
+        assert isinstance(self.idx, int)
+        assert isinstance(self.gini, float)
 
     def insert_node(self, feature, threshold, idx, gini):
         """
         Method for growing tree via. comparing gini values
         Inspired by: https://www.tutorialspoint.com/python/python_binary_tree
 
-        Attributes
-        ----------
-        data: tuple
-            Tuple containing feature, threshold, idx, and gini var
+        Arguments
+        ---------
+        See docstring of DecisionNode
         """
-        # WIP
-        # TODO: cleanup DecisionNode init
         if gini < self.gini:
             if self.left_child is None:
                 self.left_child = DecisionNode(feature, threshold, idx, gini)
@@ -88,13 +114,25 @@ class DecisionNode:
             else:
                 self.right_child.insert_node(feature, threshold, idx, gini)
 
+    def in_tree(self, node):
+        """
+        Recursively traverses tree to determine if node exists in tree
+        """
+        if node in (self.left_child, self.right_child):
+            return True
+
+        self.in_tree(self.left_child)
+        self.in_tree(self.right_child)
+
+        return False
+
     def display_tree(self):
         """
         Displays entire tree by recursively traversing tree
 
         # TODO: figure out how to format tree
         """
-        print(f"{self.feature} : {self.threshold}")
+        print(f"{self.position} {self.feature} : {self.threshold}")
         if self.left_child is not None:
             self.left_child.display_tree()
         if self.right_child is not None:
@@ -109,35 +147,41 @@ class DecisionTree:
     Attributes
     ----------
     model_type: string
-        Initialze model as classifier or regressor
+                    Initialze model as classifier or regressor
 
     max_depth: int or None
-        Maximum depth of tree
+                    Maximum depth of tree
 
     max_features_split: int or None
-        Number of features to consider in node split
+                    Number of features to consider in node split
 
     min_sample_split: int
-        Minimum number of samples in node to be split
+                    Minimum number of samples in node to be split
 
     min_sample_leaf: int
-        Minimum number of samples covered by leaf to be split
+                    Minimum number of samples covered by leaf to be split
 
     Methods
     -------
-    test_init:
-        Tests whether init arguments adhere to initialization restrictions
+    return_valid_init:
+                    Tests whether init arguments adhere to initialization restrictions
     calculate_split_gini:
-        Returns gini calculation for feature split
+                    Returns gini calculation for feature split
 
     get_best_gini_split:
-        Calculates gini impurity of all features in dataset. Evaluates
-        all possible thresholds for all features & values in dataset and
-        returns best split conditions. Used as cost function in classifier
+                    Calculates gini impurity of all features in dataset. Evaluates
+                    all possible thresholds for all features & values in dataset and
+                    returns best split conditions. Used as cost function in classifier
+    get_best_mse_split:
+                    Calculates mse of all features in dataset. Used as cost function in regressor
 
     train:
-        Recursively generates decision tree determining
-        best splits
+                    Recursively generates decision tree determining
+                    best splits
+
+    predict:
+                    Returns prediction for feature by traversing trained
+                    DecisionTree object
     """
 
     model_type: str
@@ -146,9 +190,9 @@ class DecisionTree:
     min_sample_split: int = None
     min_sample_leaf: int = 1
     curr_nodes: int = 0
-    splits = list()
+    root = None
 
-    def test_init(self):
+    def return_valid_init(self):
         """
         Tests whether init arguments adhere to initialization restrictions
         """
@@ -174,11 +218,11 @@ class DecisionTree:
         Args
         ----
         right: nupmy array
-            Side of dataset split at value
+                        Side of dataset split at value
         left: numpy array
-            Remaining side of dataset split at value
+                        Remaining side of dataset split at value
         len_target: int
-            Number of datapoints in target column
+                        Number of datapoints in target column
 
         Returns
         -------
@@ -211,10 +255,10 @@ class DecisionTree:
         Attributes
         ----------
         dataset: pandas dataframe
-            Dataframe containing all features & target
+                        Dataframe containing all features & target
 
         target: string
-            Column name of target
+                        Column name of target
 
         Returns
         -------
@@ -249,7 +293,7 @@ class DecisionTree:
             nodes.append(decision)
 
         # iterate through nodes, return node corresponding to minimum gini
-        min_impurity_dummy = 9999999
+        min_impurity_dummy = ARBITRARY_LARGE_N
         for node in nodes:
             if node.gini < min_impurity_dummy:
                 min_impurity_dummy = node.gini
@@ -266,10 +310,10 @@ class DecisionTree:
         Attributes
         ----------
         dataset: pandas dataframe
-            Dataframe containing all features & target
+                        Dataframe containing all features & target
 
         target: string
-            Column name of target
+                        Column name of target
 
         Returns
         -------
@@ -287,38 +331,46 @@ class DecisionTree:
         Attributes
         ----------
         dataset: pandas dataframe
-            Dataframe containing all features & target
+                        Dataframe containing all features & target
 
         target: string
-            Column name of target
+                        Column name of target
 
         Returns
         -------
-        List of dictionaries of form:
-            {Feature -> str: [thershold, threshold_idx] -> list}
-        where each dictionary is a node
+        Trained DecisionTree object consisting of connected
+        DecisionNodes
         """
         # if initialize with no specified max_depth, let tree grow to
         # theoretical max depth. Use dummy value for theoretical max
         if self.max_depth is None:
-            depth = 9999999
+            depth = ARBITRARY_LARGE_N
         else:
             depth = self.max_depth
 
         while self.curr_nodes < 2 * depth + 1:
             # get split details for current dataset
-            decision = self.get_best_gini_split(dataset, target)
-            feature, thresh_idx = decision.feature, decision.idx
-            # append split conditions to self.split if condition not
-            # already there
-            # TODO: self.splits could be a better datatype
-            if decision not in self.splits:
-                self.splits.append(decision)
+            if self.curr_nodes == 0:
+                # initialize root node
+                self.root = self.get_best_gini_split(dataset, target)
+                self.root.position = self.curr_nodes
+                feature, thresh_idx = self.root.feature, self.root.idx
                 self.curr_nodes += 1
             else:
-                # stops infinite loop case where minimum global
-                # impurity is reached but not yet reached max depth
-                break
+                node = self.get_best_gini_split(dataset, target)
+                node.position = self.curr_nodes
+                feature, thresh_idx = node.feature, node.idx
+
+                # insert all new nodes to root node
+                if not self.root.in_tree(node):
+                    self.root.insert_node(
+                        node.feature, node.threshold, node.idx, node.gini
+                    )
+                    self.curr_nodes += 1
+                else:
+                    # terminate infinite loop when min_gini accomplished as
+                    # curr_depth < max_depth
+                    break
 
             # thresh_idx == 0 corresponds to a split with no decrease
             # in impurity. Thus, as long as idx !=, continue splitting
@@ -332,22 +384,21 @@ class DecisionTree:
                 self.train(right, target)
 
         # TODO - need to make sure this is doing what it should be doing
-        return self.splits
+        return self.root
 
     def predict(self, predict_features):
         """
         Should mirror sklearn predict function - take in prediction features
-        and outputsprediction
+        and output prediction
         """
         pass
 
 
-"""
-
+'''
 data = pd.read_csv("wine.csv")
 
 tree = DecisionTree("regressor", max_depth=3)
-tree.test_init()
-print(tree.train(data, "quality"))
-print(len(data["quality"]))
-"""
+tree.return_valid_init()
+trained_tree = tree.train(data, "quality")
+print(trained_tree.display_tree())
+'''

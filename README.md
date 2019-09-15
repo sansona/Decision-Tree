@@ -1,6 +1,4 @@
-# Tree-Algorithm-Implementations
-
-Decision Tree: 
+# Decision Tree: 
 ---
 Barebones decision tree classifier. Main limitations are that it works only on numerical features and only builds decisionnodes w/ one threshold condition per node. 
 
